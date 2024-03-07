@@ -9,6 +9,9 @@
 // Piwik Server Api: <see href="http://developer.piwik.org/api-reference/tracking-api"/>
 // </summary>
 
+using System.Net.Http;
+using Newtonsoft.Json;
+
 namespace Piwik.Tracker
 {
     using System.IO;
@@ -18,7 +21,7 @@ namespace Piwik.Tracker
     using System.Net;
     using System.Globalization;
     using System.Web;
-    using System.Web.Script.Serialization;
+    // using System.Web.Script.Serialization;
     using System.Text.RegularExpressions;
 
     /// <summary>
@@ -732,7 +735,8 @@ namespace Piwik.Tracker
                 data["token_auth"] = _tokenAuth;
             }
 
-            var postData = new JavaScriptSerializer().Serialize(data);
+            // var postData = new JavaScriptSerializer().Serialize(data);
+            var postData = JsonConvert.SerializeObject(data);
             var response = SendRequest(PiwikBaseUrl, "POST", postData, true);
 
             _storedTrackingActions = new List<string>();
@@ -797,7 +801,8 @@ namespace Piwik.Tracker
             var serializedCategories = "";
             if (categories != null)
             {
-                serializedCategories = new JavaScriptSerializer().Serialize(categories);
+                // serializedCategories = new JavaScriptSerializer().Serialize(categories);
+                serializedCategories = JsonConvert.SerializeObject(categories);
             }
             SetCustomVariable(CvarIndexEcommerceItemCategory, "_pkc", serializedCategories, Scopes.Page);
 
@@ -899,7 +904,8 @@ namespace Piwik.Tracker
 
             if (_ecommerceItems.Count > 0)
             {
-                url += "&ec_items=" + UrlEncode(new JavaScriptSerializer().Serialize(_ecommerceItems.Values));
+                // url += "&ec_items=" + UrlEncode(new JavaScriptSerializer().Serialize(_ecommerceItems.Values));
+                url += "&ec_items=" + UrlEncode(JsonConvert.SerializeObject(_ecommerceItems.Values));
             }
 
             _ecommerceItems = new Dictionary<string, object[]>();
@@ -1283,7 +1289,8 @@ namespace Piwik.Tracker
                 return null;
             }
 
-            var cookieDecoded = new JavaScriptSerializer().Deserialize<string[]>(HttpUtility.UrlDecode(refCookie.Value ?? string.Empty));
+            // var cookieDecoded = new JavaScriptSerializer().Deserialize<string[]>(HttpUtility.UrlDecode(refCookie.Value ?? string.Empty));
+            var cookieDecoded = JsonConvert.DeserializeObject<string[]>(HttpUtility.UrlDecode(refCookie.Value ?? string.Empty));
 
             if (cookieDecoded == null)
             {
@@ -1440,6 +1447,18 @@ namespace Piwik.Tracker
                     streamWriter.Write(data);
                 }
             }
+
+            HttpClient client = new()
+            {
+                BaseAddress = new Uri(url),
+                Timeout = RequestTimeout
+                // DefaultRequestHeaders = { UserAgent = { _userAgent }, AcceptLanguage = { _acceptLanguage }}
+            };
+
+            using HttpResponseMessage response = client.GetAsync("").Result;
+            // response.EnsureSuccessStatusCode();
+            return new TrackingResponse { HttpStatusCode = response.StatusCode, RequestedUrl = url };
+            
             using (var result = (HttpWebResponse)request.GetResponse())
             {
                 return new TrackingResponse { HttpStatusCode = result.StatusCode, RequestedUrl = url };
@@ -1503,9 +1522,12 @@ namespace Piwik.Tracker
                     (!_ecommerceLastOrderTimestamp.Equals(DateTimeOffset.MinValue) ? "&_ects=" + DateTimeUtils.ConvertToUnixTime(_ecommerceLastOrderTimestamp) : "") +
 
                     // Various important attributes
-                    (_visitorCustomVar.Any() ? "&_cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_visitorCustomVar)) : "") +
-                    (_pageCustomVar.Any() ? "&cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_pageCustomVar)) : "") +
-                    (_eventCustomVar.Any() ? "&e_cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_eventCustomVar)) : "") +
+                    // (_visitorCustomVar.Any() ? "&_cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_visitorCustomVar)) : "") +
+                    // (_pageCustomVar.Any() ? "&cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_pageCustomVar)) : "") +
+                    // (_eventCustomVar.Any() ? "&e_cvar=" + UrlEncode(new JavaScriptSerializer().Serialize(_eventCustomVar)) : "") +
+                    (_visitorCustomVar.Any() ? "&_cvar=" + UrlEncode(JsonConvert.SerializeObject(_visitorCustomVar)) : "") +
+                    (_pageCustomVar.Any() ? "&cvar=" + UrlEncode(JsonConvert.SerializeObject(_pageCustomVar)) : "") +
+                    (_eventCustomVar.Any() ? "&e_cvar=" + UrlEncode(JsonConvert.SerializeObject(_eventCustomVar)) : "") +
                     (_generationTime != null ? "&gt_ms=" + _generationTime : "") +
                     (!string.IsNullOrEmpty(_forcedVisitorId) ? "&cid=" + _forcedVisitorId : "&_id=" + GetVisitorId()) +
 
@@ -1654,7 +1676,8 @@ namespace Piwik.Tracker
             var attributionInfo = GetAttributionInfo();
             if (attributionInfo != null)
             {
-                SetCookie("ref", UrlEncode(new JavaScriptSerializer().Serialize(attributionInfo.ToArray())), ConfigReferralCookieTimeout);
+                // SetCookie("ref", UrlEncode(new JavaScriptSerializer().Serialize(attributionInfo.ToArray())), ConfigReferralCookieTimeout);
+                SetCookie("ref", UrlEncode(JsonConvert.SerializeObject(attributionInfo.ToArray())), ConfigReferralCookieTimeout);
             }
 
             // Set the 'ses' cookie
@@ -1665,7 +1688,8 @@ namespace Piwik.Tracker
             SetCookie("id", cookieValue, ConfigVisitorCookieTimeout);
 
             // Set the 'cvar' cookie
-            SetCookie("cvar", UrlEncode(new JavaScriptSerializer().Serialize(_visitorCustomVar)), ConfigSessionCookieTimeout);
+            // SetCookie("cvar", UrlEncode(new JavaScriptSerializer().Serialize(_visitorCustomVar)), ConfigSessionCookieTimeout);
+            SetCookie("cvar", UrlEncode(JsonConvert.SerializeObject(_visitorCustomVar)), ConfigSessionCookieTimeout);
         }
 
         /// <summary>
@@ -1695,7 +1719,8 @@ namespace Piwik.Tracker
             {
                 return new Dictionary<string, string[]>();
             }
-            return new JavaScriptSerializer().Deserialize<Dictionary<string, string[]>>(HttpUtility.UrlDecode(cookie.Value ?? string.Empty));
+            // return new JavaScriptSerializer().Deserialize<Dictionary<string, string[]>>(HttpUtility.UrlDecode(cookie.Value ?? string.Empty));
+            return JsonConvert.DeserializeObject<Dictionary<string, string[]>>(HttpUtility.UrlDecode(cookie.Value ?? string.Empty));
         }
 
         private string FormatDateValue(DateTimeOffset date)
